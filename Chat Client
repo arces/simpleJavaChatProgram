@@ -1,0 +1,208 @@
+package chat;
+import java.io.*;
+import java.net.*;
+import java.util.*;
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.*;
+
+public class ChatClient
+{
+	JTextArea incoming;
+	JTextField outgoing;
+	BufferedReader reader;
+	PrintWriter writer;
+	Socket sock;
+	String UserName;
+	String ipAdd="127.0.0.1";
+	int FinishedNet=0;
+	
+	JMenuBar menuBar;
+	JMenu menu, submenu;
+	JMenuItem menuItem;
+	JRadioButtonMenuItem rbMenuItem;
+	JCheckBoxMenuItem cbMenuItem;
+	
+	
+public static void main(String[] args) throws Exception
+{ChatClient chat = new ChatClient();
+chat.go();}
+
+public void go(){
+	menuBar = new JMenuBar();
+	
+	JFrame frame = new JFrame("Simple Chat client");
+	JPanel mainPanel = new JPanel();
+	
+	menu = new JMenu("Menu");
+	menu.getAccessibleContext().setAccessibleDescription(
+	        "The only menu in this program that has menu items");
+	menuBar.add(menu);
+	cbMenuItem = new JCheckBoxMenuItem("Message AutoScroll");
+	cbMenuItem.addActionListener(new autoScrollListener());
+	menu.add(cbMenuItem);
+	frame.setJMenuBar(menuBar);
+	
+	incoming = new JTextArea(15,50);
+	incoming.setLineWrap(true);
+	incoming.setWrapStyleWord(true);
+	incoming.setEditable(false);
+	
+	JScrollPane qScroller = new JScrollPane(incoming);
+	qScroller.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
+	qScroller.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+	outgoing = new JTextField(20);
+	
+	outgoing.addKeyListener(new EnterListener());
+	JButton sendButton = new JButton ("Send");
+	sendButton.addActionListener(new SendButtonListener());
+	
+	mainPanel.add(qScroller);
+	mainPanel.add(outgoing);
+	mainPanel.add(sendButton);
+	setUpNetworking();
+	
+	Thread readerThread = new Thread(new IncomingReader());
+	readerThread.start();
+	
+	frame.getContentPane().add(BorderLayout.CENTER, mainPanel);
+	frame.setSize(600,500);
+	frame.setVisible(true);
+	incoming.setText("Type /Help to get the help Text \n");
+	}
+
+private void setUpNetworking(){
+try{
+	
+	ipAdd = JOptionPane.showInputDialog("What is the IP you wish to connect to");
+	UserName = JOptionPane.showInputDialog("What is your UserName?");
+	
+	sock = new Socket(ipAdd, 5000);
+	InputStreamReader streamReader = new InputStreamReader(sock.getInputStream());
+	reader = new BufferedReader(streamReader);
+	writer = new PrintWriter(sock.getOutputStream());
+	incoming.append("Networking Finished");
+} catch(IOException e){
+	e.printStackTrace();}
+}
+
+public void SendMessage(String message){
+	writer.println(UserName+": "+message);
+	writer.flush();
+	outgoing.setText("");
+	outgoing.requestFocus();
+}
+
+public void SendMessage(){
+	try{
+		String outText=outgoing.getText();
+		if(outText.length()>1 && outText.substring(0, 1).equals("/")){
+		String realOutText=outgoing.getText().substring(1);
+		
+			if(realOutText.equals("help")){
+				incoming.append("\n help: Displays the help text \n reconnect: reconnects to any IP \n newUserName: Select a new username \n about: Displays the about text \n ipAddress: Displays your public IP Address to only you \n ipAdressAll: Sends your public IP Adress to everyone on the server");
+			}
+			else if(realOutText.equals("about")){
+				incoming.append("\n Coded by Dan Janes with the help of Ian Sacco \n Started on 5/27/2014 \n");
+			}
+			else if(realOutText.equals("newUserName")){
+				String old=UserName;
+				UserName = JOptionPane.showInputDialog("What is your NEW UserName?");
+				writer.println(old+" is now known as "+UserName);
+				writer.flush();
+			}
+			else if (realOutText.equals("reconnect")){
+				setUpNetworking();
+				}
+			else if (realOutText.equals("ipAddress")){
+				try{ URL whatismyip = new URL("http://bot.whatismyipaddress.com");
+		        BufferedReader in = new BufferedReader(new InputStreamReader(
+		                whatismyip.openStream()));
+
+		                String ip = in.readLine();
+		                incoming.append("Your IP address is "+ip+"\n");}
+				catch(Exception e){e.printStackTrace();					
+				}
+			}
+			else if (realOutText.equals("ipAddressAll")){
+				try{URL whatismyip = new URL("http://bot.whatismyipaddress.com");
+		        BufferedReader in = new BufferedReader(new InputStreamReader(
+		                whatismyip.openStream()));
+
+		                String ip = in.readLine();
+		                SendMessage( UserName+"'s IP address is "+ip+"\n");}
+				catch(Exception e){e.printStackTrace();					
+				}
+			}
+			
+			else{
+				incoming.append("Sorry that is not a command, try /help \n");
+			}
+		}
+		else{
+		writer.println(UserName+": "+outText);
+		writer.flush();
+	}}catch(Exception e) {e.printStackTrace();}
+	
+	outgoing.setText("");
+	outgoing.requestFocus();
+}
+
+private class SendButtonListener implements ActionListener{
+	public void actionPerformed(ActionEvent ev){
+		
+		
+			
+			SendMessage();
+	
+}
+}
+
+private class autoScrollListener implements ActionListener{
+	public void actionPerformed(ActionEvent ev){
+		
+		if(cbMenuItem.isSelected()==true){
+		
+		incoming.setCaretPosition(incoming.getDocument().getLength());}
+		
+	}
+}
+	
+
+private class EnterListener implements KeyListener{
+
+	@Override
+	public void keyPressed(KeyEvent arg0) {
+		if(arg0.getKeyCode()==10){
+			SendMessage();
+		}
+			
+		}
+		@Override
+	public void keyReleased(KeyEvent arg0) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void keyTyped(KeyEvent arg0) {
+		// TODO Auto-generated method stub
+		
+	}
+	
+}
+	
+public class IncomingReader implements Runnable{
+	public void run(){
+		String message;
+		try{
+			while ((message=reader.readLine())!=null){System.out.println("read "+message);
+			incoming.append(message+"\n");
+			if(cbMenuItem.isSelected()==true){
+				
+				incoming.setCaretPosition(incoming.getDocument().getLength());}
+			}
+		}catch(Exception e){e.printStackTrace();}
+		}
+	}
+}
