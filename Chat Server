@@ -1,0 +1,111 @@
+package chat;
+import java.awt.BorderLayout;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.io.*;
+import java.net.*;
+import java.util.*;
+import javax.swing.*;
+
+
+
+public class ServerProgram 
+	{
+	JTextArea incoming;
+	ArrayList clientOutputStreams;
+	JTextField outgoing;
+	
+	public class ClientHandler implements Runnable {
+		BufferedReader reader;
+		Socket sock;
+	
+	
+		public ClientHandler(Socket clientSocket){
+		try{
+			 sock = clientSocket;
+			InputStreamReader isReader = new InputStreamReader(sock.getInputStream());
+			reader = new BufferedReader(isReader);
+		} catch(Exception e) {e.printStackTrace();}
+		}
+		
+		public void run(){
+			String message;
+			try{
+				while ((message=reader.readLine())!=null){
+					incoming.append("USER: "+message+"\n");
+					tellEveryone(message);
+				}
+			}catch(Exception e){e.printStackTrace();}
+		}
+	}
+		
+	public static void main (String[] args){
+		new ServerProgram().go();
+	}
+	
+	public void go(){
+		clientOutputStreams = new ArrayList();
+		JFrame frame = new JFrame("Simple Chat Server");
+		JPanel mainPanel = new JPanel();
+		incoming = new JTextArea(15,50);
+		incoming.setLineWrap(true);
+		incoming.setWrapStyleWord(true);
+		incoming.setEditable(false);
+		JScrollPane qScroller = new JScrollPane(incoming);
+		qScroller.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
+		qScroller.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+		outgoing = new JTextField(20);
+		JButton sendButton = new JButton ("Send");
+		sendButton.addActionListener(new SendButtonListener());
+		mainPanel.add(qScroller);
+		mainPanel.add(outgoing);
+		mainPanel.add(sendButton);
+		frame.getContentPane().add(BorderLayout.CENTER, mainPanel);
+		frame.setSize(600,500);
+		frame.setVisible(true);
+		
+		try{
+			ServerSocket serverSock = new ServerSocket(5000);
+			
+			while(true){
+				Socket clientSocket = serverSock.accept();
+				PrintWriter writer = new PrintWriter(clientSocket.getOutputStream());
+				clientOutputStreams.add(writer);
+				
+				Thread t = new Thread(new ClientHandler(clientSocket));
+				t.start();
+				incoming.append("got a connection\n");}
+			}catch (Exception e){e.printStackTrace();}
+		}
+	
+	
+	public void tellEveryone(String message){
+		Iterator it = clientOutputStreams.iterator();
+		
+		while(it.hasNext()){
+			try{
+				PrintWriter writer = (PrintWriter) it.next();
+				writer.println(message);
+				writer.flush();
+			}catch(Exception e){e.printStackTrace();}
+		}
+	}
+	private class SendButtonListener implements ActionListener{
+		public void actionPerformed(ActionEvent ev){
+			Iterator it = clientOutputStreams.iterator();	
+			if(it.hasNext()==false){
+				incoming.append(outgoing.getText());
+			}
+			while(it.hasNext()){
+				try{
+					PrintWriter writer = (PrintWriter) it.next();
+					writer.flush();
+				}catch(Exception e){e.printStackTrace();}
+			}
+			
+			outgoing.setText("");
+			outgoing.requestFocus();
+		}
+	}
+	}
+		
